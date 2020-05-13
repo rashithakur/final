@@ -44,6 +44,8 @@
         
         <li><a href="/projects/">PROJECTS</a></li>
         
+        <li><a href="/resume.pdf">RESUME</a></li>
+        
       
       </ul>
     </div>
@@ -71,18 +73,28 @@
 
 
 <p>In the class, we mostly used R for the majority of the semester so using Python was a little disconcerting. Luckily, the two languages can communicate with each other making the transition to Python much smoother with the familiar backdrop of R.</p>
-<p><img src="/Users/RashiThakur/Project3/static/img/pythonr.png" /></p>
+<p><img src="/blog/2020-05-13-using-python-with-r_files/pythonr.png" /></p>
 <p>For them to talk to each other, the reticulate package is needed.</p>
-<pre class="r"><code>library(reticulate)
+<pre class="r"><code># r chunk 
+library(reticulate)
 heading&lt;-&quot;Addition&quot;
 one&lt;-1
 two&lt;-2
 three&lt;-3</code></pre>
-<p>Now we can use these in a Python code chunk in an rmd file.</p>
-<pre class="python"><code>print(r.heading)</code></pre>
+<p>Now we can use these in a Python code chunk.</p>
+<pre class="python"><code># python chunk 
+print(r.heading)</code></pre>
 <pre><code>## Addition</code></pre>
 <pre class="python"><code>r.one+r.two+r.three</code></pre>
 <pre><code>## 6.0</code></pre>
+<p>We can also do this the other way round. Let’s work in Python first and then in R.</p>
+<pre class="python"><code># python chunk
+x=1
+y=2
+z=3</code></pre>
+<pre class="r"><code># r chunk 
+py$x+py$y+py$z</code></pre>
+<pre><code>## [1] 6</code></pre>
 
               <hr>
               <div class="related-posts">

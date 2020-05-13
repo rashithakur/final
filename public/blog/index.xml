@@ -19,7 +19,7 @@
       <guid>/blog/using-python-with-r/</guid>
       <description>In the class, we mostly used R for the majority of the semester so using Python was a little disconcerting. Luckily, the two languages can communicate with each other making the transition to Python much smoother with the familiar backdrop of R.
 For them to talk to each other, the reticulate package is needed.
-library(reticulate) heading&amp;lt;-&amp;quot;Addition&amp;quot; one&amp;lt;-1 two&amp;lt;-2 three&amp;lt;-3 Now we can use these in a Python code chunk in an rmd file.</description>
+# r chunk library(reticulate) heading&amp;lt;-&amp;quot;Addition&amp;quot; one&amp;lt;-1 two&amp;lt;-2 three&amp;lt;-3 Now we can use these in a Python code chunk.</description>
     </item>
     
   </channel>

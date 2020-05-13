@@ -10,14 +10,12 @@ description: ''
 
 In the class, we mostly used R for the majority of the semester so using Python was a little disconcerting. Luckily, the two languages can communicate with each other making the transition to Python much smoother with the familiar backdrop of R. 
 
-
-![](/Users/RashiThakur/Project3/static/img/pythonr.png)
-
-
+![](/blog/2020-05-13-using-python-with-r_files/pythonr.png) 
 
 For them to talk to each other, the reticulate package is needed. 
 
 ```{R}
+# r chunk 
 library(reticulate)
 heading<-"Addition"
 one<-1
@@ -25,9 +23,25 @@ two<-2
 three<-3
 ```
 
-Now we can use these in a Python code chunk in an rmd file.
+Now we can use these in a Python code chunk.
 
 ```{python}
+# python chunk 
 print(r.heading)
 r.one+r.two+r.three
+```
+
+
+We can also do this the other way round. Let's work in Python first and then in R. 
+
+```{python}
+# python chunk
+x=1
+y=2
+z=3
+```
+
+```{r}
+# r chunk 
+py$x+py$y+py$z
 ```
