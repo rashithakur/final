@@ -36,12 +36,12 @@ We can also do this the other way round. Let's work in Python first and then in 
 
 ```{python}
 # python chunk
-x=1
-y=2
-z=3
+one=1
+two=2
+three=3
 ```
 
 ```{r}
 # r chunk 
-py$x+py$y+py$z
+py$one+py$two+py$three
 ```
