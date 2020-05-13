@@ -1,0 +1,250 @@
+---
+title: "Project 1"
+date: "2020-03-08"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
+
+<div id="rashi-thakur-rmt2365" class="section level2">
+<h2>Rashi Thakur rmt2365</h2>
+<hr />
+</div>
+<div id="introduction" class="section level1">
+<h1>Introduction</h1>
+<p>For this project, I wanted to track the spread of the new coronavirus throughout the world as it is an escalating situation and, I also wanted to see its effect on the stock market as I recently learned in my finance class that the stock market is being affected by this pandemic. The first dataset chosen is about COVID-19 and the total number of infected cases and deaths in each country from the 21st of January up to the 2nd of March. This was obtained from the website Mapipedia from a user who had compiled the World Health Organization situation reports into a dataset. The other two datasets are the closing stock prices ranging from the same dates of the S&amp;P500 Index (SP500) to track the overall US stock market and of Carnival Corporation &amp; plc (CCL) which is the biggest travel leisure company with a combined fleet of over 100 vessels across 10 cruise line brands, inlcuding the Diamond Princess cruise ship. These datasets were obtained from Yahoo Finance. I expect China to have the most number of cases as that is where the virus was first discovered with a latter increase of cases in South Korea and Iran. I also expect the stock market to go down, but perhaps not as much as the cruise line stock which is likely driven down further due to the cases on the Diamond Princess ship.</p>
+<div id="merging-and-tidying" class="section level3">
+<h3>Merging and Tidying</h3>
+<pre class="r"><code>library(tidyverse)
+library(GGally)
+library(cluster)
+library(ggplot2)
+setwd(&quot;/Users/RashiThakur/Desktop&quot;)
+covidcases &lt;- read.csv(&quot;covidfinal.csv&quot;)
+ccl &lt;- read.csv(&quot;ccl.csv&quot;)
+sp5002020 &lt;- read.csv(&quot;sp5002020.csv&quot;)
+
+covid_final &lt;- left_join(covidcases, ccl, by=&quot;Date&quot;)
+covid_final &lt;- left_join(covid_final, sp5002020, by=&quot;Date&quot;)</code></pre>
+<p>To create the final dataset, I merged all three datasets by the common variable “Date” to get the total cases, deaths, closing stock price of CCL, and closing price of SP500 in one row for each day. Because the stock market closes every weekend, there were NAs in the stock datasets and with an <em>inner_join</em>, those rows would have been dropped which would have affected the new cases and deaths recorded on each day. I chose to do a <em>left_join</em> instead to keep all the total cases for now to create another row for new daily cases and will omit the rows containing NAs later. Since I chose a <em>left_join</em>, no cases were dropped.</p>
+<pre class="r"><code>covid2 &lt;- covid_final %&gt;% pivot_longer(c(2:70), names_to=&quot;Country&quot;, values_to=&quot;Cases&quot;)
+covid2$Deaths[is.na(covid2$Deaths)] &lt;- 0
+covid2$Cases[is.na(covid2$Cases)] &lt;- 0</code></pre>
+<p>The final dataset was too wide as each of the countries had separate columns so I chose to use <em>pivot_longer</em> to place all the countries in one column and all the total cases in another column. I also changed the NAs to zeros in the cases and deaths columns as I did not want all those days to be dropped when I omitted the NAs later.</p>
+</div>
+<div id="wrangling" class="section level3">
+<h3>Wrangling</h3>
+<pre class="r"><code>covid2 &lt;- covid2 %&gt;% mutate(mortalityrate = Deaths*100/Total)
+covid2&lt;-covid2%&gt;%arrange(Country,Date)%&gt;%group_by(Country)%&gt;%mutate(change=Cases-lag(Cases))
+covid2&lt;-covid2%&gt;%mutate(CCL=((CCLClose-50.69)/50.69)*100)%&gt;%na.omit
+covid2&lt;-covid2%&gt;%mutate(SP500=((SP500Close-3320.79)/3320.79)*100)%&gt;%na.omit
+covid2 &lt;- covid2 %&gt;%  pivot_longer(c(10:11), names_to=&quot;Stock&quot;, values_to=&quot;stockchange&quot;)
+glimpse(covid2)</code></pre>
+<pre><code>## Observations: 3,726
+## Variables: 11
+## Groups: Country [69]
+## $ Date          &lt;chr&gt; &quot;2020-01-22&quot;, &quot;2020-01-22&quot;, &quot;2020-01-23&quot;, &quot;2020-01-23&quot;,…
+## $ Total         &lt;int&gt; 314, 314, 581, 581, 846, 846, 2798, 2798, 4593, 4593, 6…
+## $ Deaths        &lt;dbl&gt; 17, 17, 18, 18, 26, 26, 82, 82, 131, 131, 133, 133, 171…
+## $ CCLClose      &lt;dbl&gt; 49.88, 49.88, 49.45, 49.45, 47.52, 47.52, 45.27, 45.27,…
+## $ SP500Close    &lt;dbl&gt; 3321.75, 3321.75, 3325.54, 3325.54, 3295.47, 3295.47, 3…
+## $ Country       &lt;chr&gt; &quot;Afghanistan&quot;, &quot;Afghanistan&quot;, &quot;Afghanistan&quot;, &quot;Afghanist…
+## $ Cases         &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
+## $ mortalityrate &lt;dbl&gt; 5.414013, 5.414013, 3.098107, 3.098107, 3.073286, 3.073…
+## $ change        &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
+## $ Stock         &lt;chr&gt; &quot;CCL&quot;, &quot;SP500&quot;, &quot;CCL&quot;, &quot;SP500&quot;, &quot;CCL&quot;, &quot;SP500&quot;, &quot;CCL&quot;, …
+## $ stockchange   &lt;dbl&gt; -1.59794634, 0.02890878, -2.44623989, 0.14303943, -6.25…</code></pre>
+<pre class="r"><code>covid2 %&gt;% select(Country, change, Date) %&gt;% arrange(desc(change))</code></pre>
+<pre><code>## # A tibble: 3,726 x 3
+## # Groups:   Country [69]
+##    Country change Date      
+##    &lt;chr&gt;    &lt;dbl&gt; &lt;chr&gt;     
+##  1 China     3886 2020-02-05
+##  2 China     3886 2020-02-05
+##  3 China     3694 2020-02-06
+##  4 China     3694 2020-02-06
+##  5 China     3233 2020-02-04
+##  6 China     3233 2020-02-04
+##  7 China     3143 2020-02-07
+##  8 China     3143 2020-02-07
+##  9 China     2973 2020-02-10
+## 10 China     2973 2020-02-10
+## # … with 3,716 more rows</code></pre>
+<pre class="r"><code>covid2 %&gt;% filter(Country==&quot;China&quot;) %&gt;% summarize(mean(change))</code></pre>
+<pre><code>## # A tibble: 1 x 2
+##   Country `mean(change)`
+##   &lt;chr&gt;            &lt;dbl&gt;
+## 1 China            1597.</code></pre>
+<pre class="r"><code>covid2 %&gt;% ungroup %&gt;% select_if(is.numeric) %&gt;% cor</code></pre>
+<pre><code>##                      Total      Deaths     CCLClose  SP500Close       Cases
+## Total          1.000000000  0.98767640 -0.804996507 -0.32069946  0.07526570
+## Deaths         0.987676404  1.00000000 -0.851051857 -0.43791742  0.07433815
+## CCLClose      -0.804996507 -0.85105186  1.000000000  0.73643820 -0.06058862
+## SP500Close    -0.320699455 -0.43791742  0.736438196  1.00000000 -0.02413767
+## Cases          0.075265698  0.07433815 -0.060588624 -0.02413767  1.00000000
+## mortalityrate  0.174614533  0.25517453 -0.099829101 -0.27641940  0.01314248
+## change        -0.008391705 -0.01447154  0.001913903  0.01819838  0.55453085
+## stockchange   -0.407658902 -0.44770509  0.563590152  0.49245942 -0.03068273
+##               mortalityrate       change  stockchange
+## Total            0.17461453 -0.008391705 -0.407658902
+## Deaths           0.25517453 -0.014471545 -0.447705093
+## CCLClose        -0.09982910  0.001913903  0.563590152
+## SP500Close      -0.27641940  0.018198381  0.492459423
+## Cases            0.01314248  0.554530852 -0.030682732
+## mortalityrate    1.00000000 -0.043803301 -0.090582201
+## change          -0.04380330  1.000000000  0.003918396
+## stockchange     -0.09058220  0.003918396  1.000000000</code></pre>
+<pre class="r"><code>covid2 %&gt;% na.omit %&gt;% group_by(Date) %&gt;% summarize_all(mean) </code></pre>
+<pre><code>## # A tibble: 27 x 11
+##    Date  Total Deaths CCLClose SP500Close Country  Cases mortalityrate change
+##    &lt;chr&gt; &lt;dbl&gt;  &lt;dbl&gt;    &lt;dbl&gt;      &lt;dbl&gt;   &lt;dbl&gt;  &lt;dbl&gt;         &lt;dbl&gt;  &lt;dbl&gt;
+##  1 2020…   314     17     49.9      3322.      NA   4.55          5.41  0.464
+##  2 2020…   581     18     49.5      3326.      NA   8.42          3.10  3.87 
+##  3 2020…   846     26     47.5      3295.      NA  12.3           3.07  3.84 
+##  4 2020…  2798     82     45.3      3244.      NA  40.6           2.93 11.4  
+##  5 2020…  4593    131     46.5      3276.      NA  66.6           2.85 26.0  
+##  6 2020…  6065    133     46.5      3273.      NA  87.9           2.19 21.3  
+##  7 2020…  7818    171     44.8      3284.      NA 113.            2.19 25.4  
+##  8 2020…  9826    213     43.5      3226.      NA 142.            2.17 29.1  
+##  9 2020… 17391    426     42.8      3249.      NA 252.            2.45 41.1  
+## 10 2020… 20630    492     43.6      3298.      NA 299.            2.38 46.9  
+## # … with 17 more rows, and 2 more variables: Stock &lt;dbl&gt;, stockchange &lt;dbl&gt;</code></pre>
+<pre class="r"><code>covid2 %&gt;% ungroup %&gt;%summarize( n(),n_distinct(Country),n_distinct(Date), mean(Cases), mean(Deaths), min(Deaths),max(Deaths), var(Deaths), max(CCLClose), min(CCLClose), max(SP500Close), min(SP500Close))</code></pre>
+<pre><code>## # A tibble: 1 x 12
+##   `n()` `n_distinct(Cou… `n_distinct(Dat… `mean(Cases)` `mean(Deaths)`
+##   &lt;int&gt;            &lt;int&gt;            &lt;int&gt;         &lt;dbl&gt;          &lt;dbl&gt;
+## 1  3726               69               27          584.           1192
+## # … with 7 more variables: `min(Deaths)` &lt;dbl&gt;, `max(Deaths)` &lt;dbl&gt;,
+## #   `var(Deaths)` &lt;dbl&gt;, `max(CCLClose)` &lt;dbl&gt;, `min(CCLClose)` &lt;dbl&gt;,
+## #   `max(SP500Close)` &lt;dbl&gt;, `min(SP500Close)` &lt;dbl&gt;</code></pre>
+<pre class="r"><code>covid2 %&gt;% group_by(Country) %&gt;% summarize(mean_cases=mean(change), sd_cases=sd(change), var(change), min_cases=min(Cases), max_cases=max(Cases)) %&gt;% arrange(desc(max_cases))</code></pre>
+<pre><code>## # A tibble: 69 x 6
+##    Country             mean_cases sd_cases `var(change)` min_cases max_cases
+##    &lt;chr&gt;                    &lt;dbl&gt;    &lt;dbl&gt;         &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;
+##  1 China                  1597.    1161.      1347901.         309     78824
+##  2 South.Korea              71.4    152.        22978.           1      2337
+##  3 Other..Cruise.ship.      17.3     27.4         752.           0       705
+##  4 Italy                    21.4     54.3        2952.           0       650
+##  5 Iran                      8.22    22.0         484.           0       245
+##  6 Japan                     5        6.50         42.3          1       210
+##  7 Singapore                 2.11     1.93          3.72         0        96
+##  8 Hong.Kong                 2.96     2.43          5.92         0        93
+##  9 United.States             1.33     3.56         12.7          0        59
+## 10 Kuwait                    1.59     5.96         35.6          0        43
+## # … with 59 more rows</code></pre>
+<p>I added another column for overall mortality rate by day by dividing deaths by the total number of cases. I also added columns for daily new cases grouped by each country and percentage change in each stock from its price on the 21st of January by using <em>mutate</em> and then using <em>pivot_longer</em> again to move the stock into one column and their percentage to another column. To find the day and country which had the biggest increase in cases, I used <em>select</em> country, change, and date and then <em>arranged</em> the change in descending order which gave the output that the highest increase in cases happened in China on the 5th of February with 3886 new cases. To find the average of daily new cases in China, I used <em>filter</em> by country and then used <em>summarize</em> to find the mean of change. This gave the output that over the days from 21st January to 2nd March, there were 1547.36 new cases every day in China on average. Additionally, I used <em>cor</em> to create a correlation matrix of the numeric variables.</p>
+<p>I used <em>summarize_all</em> after grouping by date to find the average cases, deaths, and mortality rates from each day. I also found that were 69 distinct countries being tracked in the dataset, 28 days of data, the average number of new cases over the time period was 609 cases, the average deaths were 1259.6 while the minimum deaths on a day were 17 and max were 3085. Over the 28 days, the highest closing price for CCL was $49.88 and the lowest was $31.85, and for S&amp;P500, the highest was $3386.15 and the lowest was $2954.22. I also summarized after grouping by country and then arranging in a descending order by the cases to determine that China, South Korea, Italy, Iran, and Japan were the countries with the highest number of cases, not including cruise ships.</p>
+</div>
+<div id="visualizing" class="section level3">
+<h3>Visualizing</h3>
+<pre class="r"><code>corcovid &lt;- covid2%&gt;%ungroup()%&gt;%select_if(is.numeric)%&gt;%na.omit%&gt;%cor()
+corcovid %&gt;%as.data.frame%&gt;%
+  rownames_to_column%&gt;%pivot_longer(-1)%&gt;%
+  ggplot(aes(rowname,name,fill=value))+geom_tile()+
+  geom_text(aes(label=round(value,2)))+
+  xlab(&quot;&quot;)+ylab(&quot;&quot;)+
+  scale_fill_gradient2(low=&quot;cyan2&quot;,high=&quot;deeppink&quot;)+
+  ggtitle(&quot;Correlation Heatmap&quot;) +  theme(plot.title = element_text(hjust = 0.5))</code></pre>
+<p><img src="/project1_files/figure-html/unnamed-chunk-4-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>The correlation heatmap shows that the variables that are most positively correlated are total cases and deaths and S&amp;P500 stock and CCL stock. This makes sense because as the total cases increased so did the total deaths, and as the stock market began declining, the stocks for S&amp;P500 and CCL both decreased. The variables that are most negatively correlated are deaths and CCL stock as well as total cases and CCL stock. Other variables that are also negatively correlated are deaths and total cases with the S&amp;P500 index. These values make sense because as deaths and cases increased, the stock market started declining thus making both the S&amp;P500 index and CCL stock negatively correlated to the increase in cases.</p>
+<pre class="r"><code>ggplot(covid2, aes(x=Date, y=change, fill=Country))+geom_bar(stat=&#39;summary&#39;,fun.y=&quot;mean&quot;) + 
+  theme(legend.position=&quot;bottom&quot;)  + coord_flip() +
+  theme(legend.key.size = unit(.2, &quot;cm&quot;))+
+  ggtitle(&quot;Average New Coronavirus Cases by Date&quot;) + theme(plot.title = element_text(hjust = 0.5))+
+  theme(axis.text.y = element_text(size = 7))+
+  ylab(&quot;Count&quot;) + xlab(&quot;Date&quot;)+
+  scale_y_continuous(breaks = pretty(covid2$change, n = 10))</code></pre>
+<p><img src="/project1_files/figure-html/unnamed-chunk-5-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>This plot shows the average number of new cases from 22nd January to 2nd March. The day that had the most number of new cases across every country seems to be the 5th of February with almost 4000 new cases. With the legend, it can be seen that most of the new cases have been in China however as it gets closer to March, other countries like Iran, Italy, and South Korea seem to be getting more new cases while China is decreasing their count of new cases as they are successfully managing to contain the spread of the virus thus also bringing down the total mean of new cases per day.</p>
+<pre class="r"><code>ggplot(data=covid2, aes(x=Date, y=stockchange, color=Stock, group=Stock)) +
+  geom_point()+ 
+  geom_line()+
+  theme_classic()+
+  theme(axis.text.x = element_text(angle=45, hjust=1),legend.position=&quot;bottom&quot;)+
+  ggtitle(&quot;Changes in Stock vs Total Coronavirus Cases&quot;) + theme(plot.title = element_text(hjust = 0.5))+
+  ylab(&quot;Percentage Change in Stock&quot;) + xlab(&quot;Date&quot;)+
+  scale_color_brewer(palette=&quot;Set3&quot;)+
+  geom_line(aes(y = Total/1000, colour = &quot;Total Infected Cases&quot;))+
+  scale_y_continuous(sec.axis = sec_axis(~.*1000, name = &quot;Count&quot;))</code></pre>
+<p><img src="/project1_files/figure-html/unnamed-chunk-6-1.png" width="672" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>  geom_line(aes(y = Total, colour = &quot;Cases&quot;)) </code></pre>
+<pre><code>## mapping: y = ~Total, colour = Cases 
+## geom_line: na.rm = FALSE
+## stat_identity: na.rm = FALSE
+## position_identity</code></pre>
+<p>This plot shows the percentage change in CCL stock and the S&amp;P500 Index and the total number of cases over the 28 days reported. As expected, as the total cases increased per day, the stock and index both fell. It is interesting to note that even though the overall stock market is dropping as is indicated by the S&amp;P500 index, the stock for CCL is falling much further likely due to the hysteria surrounding the cases on the Diamond Princess cruise ship. However, both the stock and the index seem to be gaining at the end of this time period possibly due to China managing to contain the spread of the virus and the plateauing of the graph for total infected cases.</p>
+</div>
+<div id="dimensionality-reduction" class="section level3">
+<h3>Dimensionality Reduction</h3>
+<pre class="r"><code>library(cluster)
+clust_dat &lt;- covid2 %&gt;% ungroup() %&gt;% na.omit()  %&gt;% select(CCLClose,SP500Close, Total, Deaths, mortalityrate)
+pam1&lt;-clust_dat%&gt;%pam(4)
+
+sil_width&lt;-vector()
+for(i in 2:10){
+  pam_fit &lt;- clust_dat%&gt;%pam(i)
+  sil_width[i] &lt;- pam_fit$silinfo$avg.width
+}
+ggplot()+geom_line(aes(x=1:10,y=sil_width))+scale_x_continuous(name=&quot;k&quot;,breaks=1:10)</code></pre>
+<p><img src="/project1_files/figure-html/unnamed-chunk-7-1.png" width="672" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>plot(pam1,which=2)</code></pre>
+<p><img src="/project1_files/figure-html/unnamed-chunk-7-2.png" width="672" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>covid2 %&gt;% na.omit() %&gt;% ungroup %&gt;% mutate(cluster=as.factor(pam1$clustering)) %&gt;% ggpairs(columns = c(2,3,4,5,8), aes(color=cluster))</code></pre>
+<p><img src="/project1_files/figure-html/unnamed-chunk-7-3.png" width="672" style="display: block; margin: auto;" /></p>
+<p>I decided to go with 4 clusters for this dataset as it had the best average silouette width of 0.8 which shows that a strong structure has been found. These clusters map nicely onto the variables for total cases and deaths as they show the clusters most distinctly however the clusters overlap for S&amp;P500, CCL, and mortality rate. Since the total number of cases and deaths increased steadily this helped the clusters be more distinct while the prices of stock and the index and the mortality rate tended to hover around the same range of values and thus are harder to differentiate into clusters.</p>
+<pre><code>## R version 3.6.2 (2019-12-12)
+## Platform: x86_64-apple-darwin15.6.0 (64-bit)
+## Running under: macOS Mojave 10.14.6
+## 
+## Matrix products: default
+## BLAS:   /Library/Frameworks/R.framework/Versions/3.6/Resources/lib/libRblas.0.dylib
+## LAPACK: /Library/Frameworks/R.framework/Versions/3.6/Resources/lib/libRlapack.dylib
+## 
+## locale:
+## [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] cluster_2.1.0   GGally_1.5.0    forcats_0.4.0   stringr_1.4.0  
+##  [5] dplyr_0.8.4     purrr_0.3.3     readr_1.3.1     tidyr_1.0.2    
+##  [9] tibble_2.1.3    ggplot2_3.2.1   tidyverse_1.3.0
+## 
+## loaded via a namespace (and not attached):
+##  [1] tidyselect_1.0.0   xfun_0.12          reshape2_1.4.3     haven_2.2.0       
+##  [5] lattice_0.20-38    colorspace_1.4-1   vctrs_0.2.3        generics_0.0.2    
+##  [9] htmltools_0.4.0    yaml_2.2.1         utf8_1.1.4         rlang_0.4.4       
+## [13] pillar_1.4.3       withr_2.1.2        glue_1.3.1         DBI_1.1.0         
+## [17] RColorBrewer_1.1-2 dbplyr_1.4.2       modelr_0.1.6       readxl_1.3.1      
+## [21] plyr_1.8.5         lifecycle_0.1.0    munsell_0.5.0      blogdown_0.18     
+## [25] gtable_0.3.0       cellranger_1.1.0   rvest_0.3.5        evaluate_0.14     
+## [29] labeling_0.3       knitr_1.28         fansi_0.4.1        broom_0.5.5       
+## [33] Rcpp_1.0.3         backports_1.1.5    scales_1.1.0       jsonlite_1.6.1    
+## [37] farver_2.0.3       fs_1.3.1           hms_0.5.3          digest_0.6.25     
+## [41] stringi_1.4.6      bookdown_0.18      grid_3.6.2         cli_2.0.2         
+## [45] tools_3.6.2        magrittr_1.5       lazyeval_0.2.2     crayon_1.3.4      
+## [49] pkgconfig_2.0.3    xml2_1.2.2         reprex_0.3.0       lubridate_1.7.4   
+## [53] reshape_0.8.8      assertthat_0.2.1   rmarkdown_2.1      httr_1.4.1        
+## [57] rstudioapi_0.11    R6_2.4.1           nlme_3.1-142       compiler_3.6.2</code></pre>
+<pre><code>## [1] &quot;2020-05-13 01:09:36 CDT&quot;</code></pre>
+<pre><code>##                                                                                            sysname 
+##                                                                                           &quot;Darwin&quot; 
+##                                                                                            release 
+##                                                                                           &quot;18.7.0&quot; 
+##                                                                                            version 
+## &quot;Darwin Kernel Version 18.7.0: Tue Aug 20 16:57:14 PDT 2019; root:xnu-4903.271.2~2/RELEASE_X86_64&quot; 
+##                                                                                           nodename 
+##                                                                                       &quot;Rashis-Air&quot; 
+##                                                                                            machine 
+##                                                                                           &quot;x86_64&quot; 
+##                                                                                              login 
+##                                                                                      &quot;RashiThakur&quot; 
+##                                                                                               user 
+##                                                                                      &quot;RashiThakur&quot; 
+##                                                                                     effective_user 
+##                                                                                      &quot;RashiThakur&quot;</code></pre>
+</div>
+</div>

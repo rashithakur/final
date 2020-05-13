@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Portfolio</title>
+    <link>/</link>
+    <description>Recent content on Portfolio</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-US</language>
+    <lastBuildDate>Fri, 01 May 2020 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Using Python with R</title>
+      <link>/blog/using-python-with-r/</link>
+      <pubDate>Wed, 13 May 2020 00:00:00 +0000</pubDate>
+      
+      <guid>/blog/using-python-with-r/</guid>
+      <description>In the class, we mostly used R for the majority of the semester so using Python was a little disconcerting. Luckily, the two languages can communicate with each other making the transition to Python much smoother with the familiar backdrop of R.
+For them to talk to each other, the reticulate package is needed.
+library(reticulate) heading&amp;lt;-&amp;quot;Addition&amp;quot; one&amp;lt;-1 two&amp;lt;-2 three&amp;lt;-3 Now we can use these in a Python code chunk in an rmd file.</description>
+    </item>
+    
+    <item>
+      <title>Project 2</title>
+      <link>/project2/</link>
+      <pubDate>Fri, 01 May 2020 00:00:00 +0000</pubDate>
+      
+      <guid>/project2/</guid>
+      <description>Rashi Thakur rmt2365  0. Introduction library(tidyverse) library(ggplot2) library(dplyr) data &amp;lt;- read.csv(&amp;quot;insurance.csv&amp;quot;) data &amp;lt;- na.omit(data) For this project, I chose a dataset for the amount of health insurance charges paid by individuals in the US over the period of a year. The variables are age, sex, BMI, the number of children the individual has, whether the individual is a smoker or not, region of residency (southwest, southeast, northwest, or northeast), and their insurance expenses.</description>
+    </item>
+    
+    <item>
+      <title>Project 1</title>
+      <link>/project1/</link>
+      <pubDate>Sun, 08 Mar 2020 00:00:00 +0000</pubDate>
+      
+      <guid>/project1/</guid>
+      <description>Rashi Thakur rmt2365  Introduction For this project, I wanted to track the spread of the new coronavirus throughout the world as it is an escalating situation and, I also wanted to see its effect on the stock market as I recently learned in my finance class that the stock market is being affected by this pandemic. The first dataset chosen is about COVID-19 and the total number of infected cases and deaths in each country from the 21st of January up to the 2nd of March.</description>
+    </item>
+    
+    <item>
+      <title>Projects</title>
+      <link>/projects/</link>
+      <pubDate>Sun, 02 Oct 2016 22:55:05 -0400</pubDate>
+      
+      <guid>/projects/</guid>
+      <description>Projects Here are some projects I have recently completed:
+  Exploratory Data Analysis with Tidyverse Tools
+  Modeling, Testing, and Classification
+  </description>
+    </item>
+    
+  </channel>
+</rss>

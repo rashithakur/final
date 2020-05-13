@@ -1,0 +1,264 @@
+---
+title: "Project 2"
+author: "SDS348"
+date: "2020-05-01"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r global_options, include=FALSE}
+#LEAVE THIS CHUNK ALONE!
+library(knitr)
+opts_chunk$set(fig.align="center", fig.height=5, message=FALSE, warning=FALSE, fig.width=8, tidy.opts=list(width.cutoff=60),tidy=TRUE)
+
+class_diag<-function(probs,truth){
+  
+  tab<-table(factor(probs>.5,levels=c("FALSE","TRUE")),truth)
+  acc=sum(diag(tab))/sum(tab)
+  sens=tab[2,2]/colSums(tab)[2]
+  spec=tab[1,1]/colSums(tab)[1]
+  ppv=tab[2,2]/rowSums(tab)[2]
+
+  if(is.numeric(truth)==FALSE & is.logical(truth)==FALSE) truth<-as.numeric(truth)-1
+  
+  #CALCULATE EXACT AUC
+  ord<-order(probs, decreasing=TRUE)
+  probs <- probs[ord]; truth <- truth[ord]
+  
+  TPR=cumsum(truth)/max(1,sum(truth)) 
+  FPR=cumsum(!truth)/max(1,sum(!truth))
+  
+  dup<-c(probs[-1]>=probs[-length(probs)], FALSE)
+  TPR<-c(0,TPR[!dup],1); FPR<-c(0,FPR[!dup],1)
+  
+  n <- length(TPR)
+  auc<- sum( ((TPR[-1]+TPR[-n])/2) * (FPR[-1]-FPR[-n]) )
+
+  data.frame(acc,sens,spec,ppv,auc)
+}
+```
+
+## Rashi Thakur rmt2365
+
+
+---
+
+
+
+# 0. Introduction
+
+```{R}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+data <- read.csv("insurance.csv")
+data <- na.omit(data)
+
+```
+
+*For this project, I chose a dataset for the amount of health insurance charges paid by individuals in the US over the period of a year. The variables are age, sex, BMI, the number of children the individual has, whether the individual is a smoker or not, region of residency (southwest, southeast, northwest, or northeast), and their insurance expenses. There are 1338 total observations and there were no NAs in this dataset. *
+
+
+#1. MANOVA test
+
+
+
+```{R}
+man1<-manova(cbind(age,bmi,children,charges)~region, data=data)
+summary(man1)
+summary.aov(man1)
+data%>%group_by(region)%>%summarize(mean(bmi),mean(charges))
+pairwise.t.test(data$bmi,data$region,p.adj="none")
+
+```
+
+*A MANOVA test was conducted to determine the effect of regions of the US on four dependent variables: age, BMI, number of children, and health insurance charges. Since the MANOVA test stat is lesser than 0.001, it is significant and shows a mean difference across region for at least one dependent variable. The univariate ANOVAS for each variable show us that children, age, and charges are not significant but BMI is (p<0.001) which means at least one region differs. Post-hoc analysis by pairwise comparisons showed that southeast/northeast, southeast/northwest, and southwest/southeast differed significantly. The probability of at least one type 1 error is usually 0.05 but having performed 9 tests in total (1 MANOVA, 4 ANOVAs, and 4 t tests) the adjusted error for this test it would be 0.05/9 = 0.0056. Even with this value, the three groupings are significantly different. For these tests, some of the assumptions that have to be met are normality, variance, homogeneity, and no linear relationships between dependent variables. They are likely to have not all been met since this sample only considers individuals who are part of this particular insurance program and can have different health risks associated with them but we can assume normality has been met with 1338 observations and variance because there's at least 50 observations per grouping. *
+
+
+#2. Randomization Test 
+
+
+```{R}
+set.seed(1234)
+data%>%group_by(sex)%>%summarize(means=mean(bmi))%>%summarize(`mean_diff:`=diff(means))
+rand_dist<-vector()
+for(i in 1:5000){
+new<-data.frame(bmi=sample(data$bmi),sex=data$sex)
+rand_dist[i]<-mean(new[new$sex=="female",]$bmi)-
+              mean(new[new$sex=="male",]$bmi)}
+mean(rand_dist< -0.5653795		 | rand_dist > 0.5653795		)
+{hist(rand_dist,main="",ylab=""); abline(v = 0.5653795	,col="red")}
+```
+
+*H0: The BMI for males and females is equal.*
+
+*HA: The BMI differs for males and females.*
+
+
+*The p value is 0.0916 which is greater than 0.05 and thus we fail to reject the null hypothesis. Thus we can conclude that the BMI values for males and females do not differ significantly.*
+
+
+# 3. Linear Regression
+
+```{R}
+data$bmi1 <- data$bmi - mean(data$bmi)
+data$charges1 <- data$charges - mean(data$charges)
+
+fit<-lm(charges1 ~ smoker*bmi1, data=data)
+summary(fit)
+ggplot(data, aes(x=bmi1, y=charges1,group=smoker))+geom_point(aes(color=smoker))+geom_smooth(method="lm",formula=y~1,se=F,fullrange=T,aes(color=smoker))
+
+resids<-lm(charges1~smoker*bmi1, data=data)$residuals
+fitted<-lm(charges1~smoker*bmi1, data=data)$fitted.values
+ggplot()+geom_histogram(aes(resids),bins=10)
+ggplot()+geom_point(aes(resids,fitted))
+resids<-fit$residuals
+fitvals<-fit$fitted.values
+ggplot()+geom_point(aes(fitvals,resids))+geom_hline(yintercept=0, color='red')
+
+
+library(sandwich)
+library(lmtest)
+fit<-lm(charges1~smoker*bmi1,data=data)
+summary(fit)$coef[,1:2]
+coeftest(fit, vcov = vcovHC(fit))[,1:2]
+
+
+```
+
+*Conducting a linear regression for the interaction between smokers and BMI on insurance charges, the intercept of -$4835.19 is the charges for an individual who is a non-smoker and has a BMI of 0. This means that for each unit increase in BMI, the charges increase by $83.35 and for the smoker group, the mean charges increase by $23548.63 from the reference group of nonsmokers. Both of these have p<0.05 meaning that they are significant relations. The interaction between smoker and bmi is also significant and the charges increase by $1389.76.*
+
+*The data does not meet assumptions of normality as it is fairly centered however it does not meet the assumptions of linearity or homoskedsaticity as the points are crowded around the line and on the left as seen graphically. Recomputing the model with robust standard errors, the SE for intercept and BMI decrease while the others increase as they should because of violations of homoskedsaticity. *
+
+*The R-squared value shows that 0.74 of the variation in the outcome of insurance charges is explained by this regression model with mean centered BMI and whether the individual is a smoker or not.  *
+
+
+
+# 4. Regression with Bootstrapped Standard Errors 
+
+```{R}
+boot_dat<- sample_frac(data, replace=T)
+samp_distn<-replicate(5000, {
+  boot_dat <- sample_frac(data, replace=T) 
+  fit <- lm(charges1 ~ smoker*bmi1, data=boot_dat) 
+  coef(fit) 
+})
+samp_distn %>% t %>% as.data.frame %>% summarize_all(sd)
+
+```
+
+*The bootstrapped errors for the intercept and BMI are smaller than both the original and robust and the errors for smokeryes and the interaction are smaller than the robust but greater than the original. This discrepancy in errors might explain the violations of assumptions for this dataset.  * 
+
+
+
+# 5. Logistic regression 
+
+```{R}
+
+data<-data %>% mutate(y=ifelse(smoker=="yes", 1, 0))
+fit2<-glm(y~bmi+charges,data=data,family=binomial(link="logit"))
+coeftest(fit2)
+exp(coef(fit2))
+
+probs<-predict(fit2,type="response")
+table(predict=as.numeric(probs>.5),truth=data$y)%>%addmargins
+#accuracy
+(220+1029)/1338
+#sensitivity
+220/274
+#specificity 
+1029/1064
+#ppv 
+220/255
+
+
+data$logit<-predict(fit2)
+data%>%ggplot()+geom_density(aes(logit,color=smoker,fill=smoker), alpha=.4)+theme(legend.position=c(.85,.75))+geom_vline(xintercept=0)+xlab("logit (log-odds)")+geom_rug(aes(logit,color=smoker))
+    
+library(plotROC)
+data$prob<-predict(fit2,type="response")
+ROCplot<-ggplot(data)+geom_roc(aes(d=smoker,m=prob), n.cuts=0) 
+ROCplot
+calc_auc(ROCplot)
+
+
+
+set.seed(1234)
+k=10
+
+data1<-data[sample(nrow(data)),] 
+folds<-cut(seq(1:nrow(data)),breaks=k,labels=F)
+
+diags<-NULL
+for(i in 1:k){          
+  train<-data1[folds!=i,] 
+  test<-data1[folds==i,]  
+  
+  truth<-test$r
+  
+  fit<- glm(y~bmi+charges, data=train, family="binomial")
+  probs<-predict(fit,newdata = test,type="response")
+  
+  
+  diags<-rbind(diags,class_diag(probs,truth)) 
+}
+
+summarize_all(diags,mean)
+
+
+
+```
+
+*Conducting a logistic regression, the odds of being a smoker are 2.62 if BMI and insurance charges are both zero. It can be seen that for every one unit increase in BMI, the odds or being a smoker are multiplied by 0.75, and for every dollar increase in insurance charges, the odds are multiplied by 1.00. The proportion of overall accuracy of this model to correctly classify individuals is 0.933, the proportion of smokers correctly classfied as such (sensitivity) is 0.803, the proportion of non-smokers correctly classified (specificity) is 0.967, and the proportion classified as smokers who actually are smokers is 0.863. The AUC for the ROC plot is 0.982 which is a great number for the model but this might be biased since it is just predicting the dataset from itself. By perform a 10 fold, this should make the AUC more realistic in how it can predict new data. The AUC for this is 0.426 which is really bad meaning that the model was probably overfitted and is not a very good predictor for smokers vs non-smokers outside of the original dataset. The avergae accuracy is 0.236 (much lower than 0.933), the sensitivity is 0.169, specificity is 0.804, and the precision is 0.215, all of which are huge drops from the proportions for the original model.  *
+
+
+# 6. LASSO Regression 
+
+
+```{R}
+library(glmnet) 
+data$y <- factor(data$y)
+y <- as.matrix(data$y)
+x <- model.matrix(y~ age+sex+bmi+children+region+charges, data=data)
+head(x)
+set.seed(1234)
+cv2<-cv.glmnet(x,y,family='binomial')
+lasso2<-glmnet(x,y,family='binomial',lambda=cv2$lambda.1se)
+coef(lasso2)
+
+set.seed(1234)
+k=10
+
+data1<-data[sample(nrow(data)),] 
+folds<-cut(seq(1:nrow(data)),breaks=k,labels=F)
+
+diags<-NULL
+for(i in 1:k){          
+  train<-data1[folds!=i,] 
+  test<-data1[folds==i,]  
+  
+  truth<-test$r
+  
+  fit<- glm(y~age+bmi+charges, data=train, family="binomial")
+  probs<-predict(fit,newdata = test,type="response")
+  
+  
+  diags<-rbind(diags,class_diag(probs,truth)) 
+}
+
+summarize_all(diags,mean)
+
+
+```
+
+*The variables that are most predictive of an individual being a smoker or not are age, bmi, and insurance charges. Doing the 10 fold CV, the AUC is still really bad at 0.421 and the accuracy is also very low at 0.235 compared to the accuracy of 0.933 from the original model. Since none of these models seemed to work well enough, it is likely that the variables are just not predictive of smoking for this dataset.  *
+
+
+
+```{R, echo=F}
+## DO NOT DELETE THIS CHUNK!
+sessionInfo()
+Sys.time()
+Sys.info()
+```

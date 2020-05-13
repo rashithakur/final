@@ -1,0 +1,160 @@
+---
+title: "Project 1"
+date: "2020-03-08"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, fig.align = "center", warning = F, message = F,
+tidy=TRUE, tidy.opts=list(width.cutoff=60), R.options=list(max.print=100))
+```
+
+## Rashi Thakur rmt2365
+
+---
+
+# Introduction
+
+For this project, I wanted to track the spread of the new coronavirus throughout the world as it is an escalating situation and, I also wanted to see its effect on the stock market as I recently learned in my finance class that the stock market is being affected by this pandemic. The first dataset chosen is about COVID-19 and the total number of infected cases and deaths in each country from the 21st of January up to the 2nd of March. This was obtained from the website Mapipedia from a user who had compiled the World Health Organization situation reports into a dataset. The other two datasets are the closing stock prices ranging from the same dates of the S&P500 Index (SP500) to track the overall US stock market and of Carnival Corporation & plc (CCL) which is the biggest travel leisure company with a combined fleet of over 100 vessels across 10 cruise line brands, inlcuding the Diamond Princess cruise ship. These datasets were obtained from Yahoo Finance. I expect China to have the most number of cases as that is where the virus was first discovered with a latter increase of cases in South Korea and Iran. I also expect the stock market to go down, but perhaps not as much as the cruise line stock which is likely driven down further due to the cases on the Diamond Princess ship.
+
+
+### Merging and Tidying
+
+```{R}
+library(tidyverse)
+library(GGally)
+library(cluster)
+library(ggplot2)
+setwd("/Users/RashiThakur/Desktop")
+covidcases <- read.csv("covidfinal.csv")
+ccl <- read.csv("ccl.csv")
+sp5002020 <- read.csv("sp5002020.csv")
+
+covid_final <- left_join(covidcases, ccl, by="Date")
+covid_final <- left_join(covid_final, sp5002020, by="Date")
+
+```
+
+To create the final dataset, I merged all three datasets by the common variable "Date" to get the total cases, deaths, closing stock price of CCL, and closing price of SP500 in one row for each day. Because the stock market closes every weekend, there were NAs in the stock datasets and with an *inner_join*, those rows would have been dropped which would have affected the new cases and deaths recorded on each day. I chose to do a *left_join* instead to keep all the total cases for now to create another row for new daily cases and will omit the rows containing NAs later. Since I chose a *left_join*, no cases were dropped.
+
+
+
+```{R}
+covid2 <- covid_final %>% pivot_longer(c(2:70), names_to="Country", values_to="Cases")
+covid2$Deaths[is.na(covid2$Deaths)] <- 0
+covid2$Cases[is.na(covid2$Cases)] <- 0
+```
+
+The final dataset was too wide as each of the countries had separate columns so I chose to use *pivot_longer* to place all the countries in one column and all the total cases in another column. I also changed the NAs to zeros in the cases and deaths columns as I did not want all those days to be dropped when I omitted the NAs later.
+
+
+### Wrangling 
+
+```{R}
+covid2 <- covid2 %>% mutate(mortalityrate = Deaths*100/Total)
+covid2<-covid2%>%arrange(Country,Date)%>%group_by(Country)%>%mutate(change=Cases-lag(Cases))
+covid2<-covid2%>%mutate(CCL=((CCLClose-50.69)/50.69)*100)%>%na.omit
+covid2<-covid2%>%mutate(SP500=((SP500Close-3320.79)/3320.79)*100)%>%na.omit
+covid2 <- covid2 %>%  pivot_longer(c(10:11), names_to="Stock", values_to="stockchange")
+glimpse(covid2)
+
+covid2 %>% select(Country, change, Date) %>% arrange(desc(change))
+covid2 %>% filter(Country=="China") %>% summarize(mean(change))
+covid2 %>% ungroup %>% select_if(is.numeric) %>% cor
+
+covid2 %>% na.omit %>% group_by(Date) %>% summarize_all(mean) 
+covid2 %>% ungroup %>%summarize( n(),n_distinct(Country),n_distinct(Date), mean(Cases), mean(Deaths), min(Deaths),max(Deaths), var(Deaths), max(CCLClose), min(CCLClose), max(SP500Close), min(SP500Close))
+covid2 %>% group_by(Country) %>% summarize(mean_cases=mean(change), sd_cases=sd(change), var(change), min_cases=min(Cases), max_cases=max(Cases)) %>% arrange(desc(max_cases))
+```
+
+I added another column for overall mortality rate by day by dividing deaths by the total number of cases. I also added columns for daily new cases grouped by each country and percentage change in each stock from its price on the 21st of January by using *mutate* and then using *pivot_longer* again to move the stock into one column and their percentage to another column. To find the day and country which had the biggest increase in cases, I used *select* country, change, and date and then *arranged* the change in descending order which gave the output that the highest increase in cases happened in China on the 5th of February with 3886 new cases. To find the average of daily new cases in China, I used *filter* by country and then used *summarize* to find the mean of change. This gave the output that over the days from 21st January to 2nd March, there were 1547.36 new cases every day in China on average. Additionally, I used *cor* to create a correlation matrix of the numeric variables.
+
+I used *summarize_all* after grouping by date to find the average cases, deaths, and mortality rates from each day. I also found that were 69 distinct countries being tracked in the dataset, 28 days of data, the average number of new cases over the time period was 609 cases, the average deaths were 1259.6 while the minimum deaths on a day were 17 and max were 3085. Over the 28 days, the highest closing price for CCL was $49.88 and the lowest was $31.85, and for S&P500, the highest was $3386.15 and the lowest was $2954.22. I also summarized after grouping by country and then arranging in a descending order by the cases to determine that China, South Korea, Italy, Iran, and Japan were the countries with the highest number of cases, not including cruise ships. 
+
+
+### Visualizing 
+
+```{R}
+corcovid <- covid2%>%ungroup()%>%select_if(is.numeric)%>%na.omit%>%cor()
+corcovid %>%as.data.frame%>%
+  rownames_to_column%>%pivot_longer(-1)%>%
+  ggplot(aes(rowname,name,fill=value))+geom_tile()+
+  geom_text(aes(label=round(value,2)))+
+  xlab("")+ylab("")+
+  scale_fill_gradient2(low="cyan2",high="deeppink")+
+  ggtitle("Correlation Heatmap") +  theme(plot.title = element_text(hjust = 0.5))
+
+
+```
+
+The correlation heatmap shows that the variables that are most positively correlated are total cases and deaths and S&P500 stock and CCL stock. This makes sense because as the total cases increased so did the total deaths, and as the stock market began declining, the stocks for S&P500 and CCL both decreased. The variables that are most negatively correlated are deaths and CCL stock as well as total cases and CCL stock. Other variables that are also negatively correlated are deaths and total cases with the S&P500 index. These values make sense because as deaths and cases increased, the stock market started declining thus making both the S&P500 index and CCL stock negatively correlated to the increase in cases. 
+
+
+
+```{R}
+ggplot(covid2, aes(x=Date, y=change, fill=Country))+geom_bar(stat='summary',fun.y="mean") + 
+  theme(legend.position="bottom")  + coord_flip() +
+  theme(legend.key.size = unit(.2, "cm"))+
+  ggtitle("Average New Coronavirus Cases by Date") + theme(plot.title = element_text(hjust = 0.5))+
+  theme(axis.text.y = element_text(size = 7))+
+  ylab("Count") + xlab("Date")+
+  scale_y_continuous(breaks = pretty(covid2$change, n = 10))
+
+```
+
+This plot shows the average number of new cases from 22nd January to 2nd March. The day that had the most number of new cases across every country seems to be the 5th of February with almost 4000 new cases. With the legend, it can be seen that most of the new cases have been in China however as it gets closer to March, other countries like Iran, Italy, and South Korea seem to be getting more new cases while China is decreasing their count of new cases as they are successfully managing to contain the spread of the virus thus also bringing down the total mean of new cases per day.
+
+
+
+```{R}
+ggplot(data=covid2, aes(x=Date, y=stockchange, color=Stock, group=Stock)) +
+  geom_point()+ 
+  geom_line()+
+  theme_classic()+
+  theme(axis.text.x = element_text(angle=45, hjust=1),legend.position="bottom")+
+  ggtitle("Changes in Stock vs Total Coronavirus Cases") + theme(plot.title = element_text(hjust = 0.5))+
+  ylab("Percentage Change in Stock") + xlab("Date")+
+  scale_color_brewer(palette="Set3")+
+  geom_line(aes(y = Total/1000, colour = "Total Infected Cases"))+
+  scale_y_continuous(sec.axis = sec_axis(~.*1000, name = "Count"))
+  geom_line(aes(y = Total, colour = "Cases")) 
+
+```
+
+This plot shows the percentage change in CCL stock and the S&P500 Index and the total number of cases over the 28 days reported. As expected, as the total cases increased per day, the stock and index both fell. It is interesting to note that even though the overall stock market is dropping as is indicated  by the S&P500 index, the stock for CCL is falling much further likely due to the hysteria surrounding the cases on the Diamond Princess cruise ship. However, both the stock and the index seem to be gaining at the end of this time period possibly due to China managing to contain the spread of the virus and the plateauing of the graph for total infected cases. 
+
+
+### Dimensionality Reduction 
+
+
+```{R}
+library(cluster)
+clust_dat <- covid2 %>% ungroup() %>% na.omit()  %>% select(CCLClose,SP500Close, Total, Deaths, mortalityrate)
+pam1<-clust_dat%>%pam(4)
+
+sil_width<-vector()
+for(i in 2:10){
+  pam_fit <- clust_dat%>%pam(i)
+  sil_width[i] <- pam_fit$silinfo$avg.width
+}
+ggplot()+geom_line(aes(x=1:10,y=sil_width))+scale_x_continuous(name="k",breaks=1:10)
+
+plot(pam1,which=2)
+
+covid2 %>% na.omit() %>% ungroup %>% mutate(cluster=as.factor(pam1$clustering)) %>% ggpairs(columns = c(2,3,4,5,8), aes(color=cluster))
+
+```
+
+I decided to go with 4 clusters for this dataset as it had the best average silouette width of 0.8 which shows that a strong structure has been found. These clusters map nicely onto the variables for total cases and deaths as they show the clusters most distinctly however the clusters overlap for S&P500, CCL, and mortality rate. Since the total number of cases and deaths increased steadily this helped the clusters be more distinct while the prices of stock and the index and the mortality rate tended to hover around the same range of values and thus are harder to differentiate into clusters.  
+
+
+
+
+```{R, echo=F}
+## DO NOT DELETE THIS BLOCK!
+sessionInfo()
+Sys.time()
+Sys.info()
+```
